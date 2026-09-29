@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="UniLib - bibliotheque universitaire"
+    />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <!--
+      PERF/CONSISTENCY FIX (P2): removed the Tailwind CDN <script> that was
+      loaded here alongside the local Tailwind build (postcss.config.js +
+      tailwind.config.js). Loading both is explicitly discouraged by
+      Tailwind's own docs for production: the CDN build is unminified,
+      unpurged (much larger payload), can cause a flash of unstyled/
+      differently-styled content, and can produce class-resolution
+      conflicts with the locally compiled stylesheet. The local build
+      (already wired via postcss) is the single source of truth now.
+    -->
+    <title>UniLib</title>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
