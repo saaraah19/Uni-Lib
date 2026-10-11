@@ -83,3 +83,9 @@ temp/
 # Ignorer le dossier import_bib
 import_bib/
 
+# ============ ENV TEMPLATES (documented, safe to commit) ============
+# The patterns above ignore every .env.* file, which also hid the
+# .env.example templates — these exceptions let them be committed.
+!.env.example
+!backend/.env.example
+!frontend/.env.example

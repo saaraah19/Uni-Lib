@@ -4,6 +4,15 @@ import axios from 'axios';
 // frontend/src/services/api.js (1 level under src), so the logger import
 // path below is "../utils/logger".
 import { logger } from '../utils/logger';
+// COLD START: the warm-up module owns the API base URL and the "is the
+// (sleeping) Render backend awake yet?" state. See services/serverWarmup.js.
+import {
+    API_BASE_URL,
+    waitUntilServerReady,
+    noteServerAlive,
+    markServerAsleep,
+    retryWarmup,
+} from './serverWarmup';
 
 /**
  * CONFIGURATION AXIOS - Instance personnalisée
@@ -16,7 +25,7 @@ import { logger } from '../utils/logger';
 const api = axios.create({
     // URL de base - Tous les chemins relatifs partiront de là
     // Exemple: api.get('/users') → http://localhost:5000/api/users
- baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000/api',
+ baseURL: API_BASE_URL,
     
     // TIMEOUT : Durée maximale d'attente d'une réponse
     // 10000 ms = 10 secondes
@@ -51,7 +60,14 @@ try {
  */
 api.interceptors.request.use(
     // Fonction de succès - reçoit la config axios
-    (config) => {
+    async (config) => {
+        // COLD START: hold every request until the backend has answered a
+        // health check. Resolves instantly once the server is known to be
+        // up, so this costs nothing in normal use. The axios timeout only
+        // starts counting after this await, so waiting for a cold start
+        // does not cause spurious timeouts.
+        await waitUntilServerReady();
+
         // Récupère le token depuis le localStorage
         // localStorage persiste même après fermeture du navigateur
         const token = localStorage.getItem('token'); // Clé 'token' à définir au login
@@ -85,13 +101,40 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     // Fonction de succès - la requête a réussi
     (response) => {
+        // Any successful answer proves the server is awake.
+        noteServerAlive();
         // On retourne simplement la réponse sans modification
         // On pourrait ajouter un traitement ici (logging, transformation...)
         return response;
     },
     
     // Fonction d'erreur - la requête a échoué
-    (error) => {
+    async (error) => {
+        // COLD START: the server may have gone back to sleep mid-session
+        // (free tier sleeps after ~15 min idle). Symptoms: no response at
+        // all (timeout / network error) or a gateway error from the proxy.
+        const config = error.config;
+        const status = error.response?.status;
+        const looksAsleep = error.response
+            ? [502, 503, 504].includes(status)
+            : error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK';
+
+        if (looksAsleep && config) {
+            markServerAsleep();
+            const method = (config.method || 'get').toLowerCase();
+            // Only GET/HEAD are replayed automatically. Replaying a POST/PUT/
+            // DELETE after a timeout could run the action twice (the first
+            // attempt may have succeeded). For those, we just re-wake the
+            // server in the background so the user's manual retry works.
+            if (['get', 'head'].includes(method) && !config.__wakeRetried) {
+                config.__wakeRetried = true;
+                const awake = await retryWarmup();
+                if (awake) return api(config);
+            } else {
+                retryWarmup();
+            }
+        }
+
         // error.response existe seulement si le serveur a répondu
         // Si error.response est undefined → problème réseau ou timeout
         

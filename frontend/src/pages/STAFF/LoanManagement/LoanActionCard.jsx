@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSpinner, FaCheckCircle, FaTimesCircle, FaUndo, FaBook } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle, FaUndo, FaBook } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import loanService from '../../../services/loanService';
 import { useTheme } from '../../../context/ThemeContext';

@@ -4,6 +4,8 @@
 
 import { useState, useEffect } from "react";
 import api from "../../../services/api"; 
+// FIX: the books card showed "N% de la capacité" computed against a hardcoded 5000
+// (so an ~11,000-title catalog read "221%"). Replaced with a plain caption.
 // P2 FIX: unguarded console.log/console.error calls replaced with the
 // shared logger utility (frontend/src/utils/logger.js). This file's
 // existing "../../../services/api" import confirms it sits 3 levels under
@@ -149,7 +151,7 @@ const Reports = () => {
               {stats.books.toLocaleString()}
             </p>
             <p className="text-xs text-gray-400 mt-2">
-              {Math.round((stats.books / 5000) * 100)}% de la capacité
+              Titres référencés dans le catalogue
             </p>
           </div>
 

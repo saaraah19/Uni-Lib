@@ -15,6 +15,8 @@ import FavoritesPage from "./pages/FavoritesPage";
 import BookCatalog from "./pages/Students/BookCatalog/BookCatalog";
 import ProtectedRoute from './components/ProtectedRoute';
 import NotificationsPage from "./components/Notifications/NotificationPage";
+// Cold-start notice (Render free tier wakes the backend on first request)
+import ServerStatusBanner from "./components/ServerStatusBanner";
 // Error fallback component
 function ErrorFallback({ error, resetErrorBoundary }) {
   return (
@@ -147,6 +149,9 @@ function App() {
           
           {/* Container pour les notifications */}
           <ToastContainer position="top-right" />
+
+          {/* Tells the user when the backend is waking up (cold start) */}
+          <ServerStatusBanner />
         </div>
       </Router>
       </ErrorBoundary>

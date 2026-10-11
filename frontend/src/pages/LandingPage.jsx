@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaBook, FaSignInAlt, FaUserPlus, FaChevronDown, FaUniversity } from 'react-icons/fa';
+// Hero + logo URLs now live in one place so index.js can preload them
+// while the splash screen is showing (see utils/criticalAssets.js).
+import { HERO_IMAGE_URL, UNIVERSITY_LOGO_URL } from '../utils/criticalAssets';
 
 /**
  * LandingPage
@@ -25,11 +28,9 @@ import { FaBook, FaSignInAlt, FaUserPlus, FaChevronDown, FaUniversity } from 're
  *   bibliothèque (durée de prêt, nombre de prêts simultanés, etc.).
  */
 
-// TODO: remplacer par une vraie image (voir note ci-dessus)
-const HERO_IMAGE_URL = 'https://images.unsplash.com/photo-1568667256549-094345857637?q=80&w=1920&auto=format&fit=crop';
-// Logo de l'Université Oran 2 Mohamed Ben Ahmed — placer le fichier
-// logo-oran2.jpg dans frontend/public/ (fourni par l'utilisateur).
-const UNIVERSITY_LOGO_URL = '/logo-oran2.jpg';
+// HERO_IMAGE_URL / UNIVERSITY_LOGO_URL: voir utils/criticalAssets.js.
+// (Logo : frontend/public/logo-oran2.jpg — hero : remplacer idéalement par
+// une vraie photo de la bibliothèque, hébergée dans /public.)
 const FACULTY_NAME = 'Faculté des Langues Étrangères — Université Oran 2 Mohamed Ben Ahmed';
 
 const FAQ_ITEMS = [
@@ -121,7 +122,7 @@ const LandingPage = () => {
       {/* HERO */}
       {/* ================================================== */}
       <section
-        className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center bg-cover bg-center"
+        className="relative min-h-[85vh] sm:min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-gray-800"
         style={{ backgroundImage: `url(${HERO_IMAGE_URL})` }}
       >
         {/* Overlay pour lisibilité du texte */}

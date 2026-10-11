@@ -17,6 +17,15 @@ const helmet = require("helmet");
 const app = express();
 app.use(helmet());
 
+// RENDER/PROXY FIX: in production the API sits behind Render's reverse
+// proxy, so every request reaches Node from the proxy's IP. Without this
+// setting, req.ip is the proxy's address for ALL visitors — which means the
+// login/register rate limiter (5 attempts / 15 min) would be shared by every
+// user of the site (five failed logins from anyone would lock everybody
+// out), and express-rate-limit logs an X-Forwarded-For validation error.
+// "1" = trust exactly one proxy hop (Render's), so req.ip is the real client.
+app.set('trust proxy', 1);
+
 
 const corsOptions = {
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
@@ -39,6 +48,20 @@ const connectDB = async () => {
     process.exit(1); // Arrête le serveur si pas de DB
   }
 };
+
+// ========== HEALTH CHECK ==========
+// COLD-START SUPPORT: lightweight endpoint, no auth, no heavy DB query.
+// Used by (1) the frontend warm-up (services/serverWarmup.js) to detect
+// when a sleeping Render instance is awake again, (2) Render's
+// healthCheckPath, and (3) an optional external uptime pinger.
+app.get('/api/health', (req, res) => {
+  const dbUp = mongoose.connection.readyState === 1;
+  res.status(dbUp ? 200 : 503).json({
+    status: dbUp ? 'ok' : 'degraded',
+    db: dbUp ? 'up' : 'down',
+    uptime: Math.round(process.uptime()),
+  });
+});
 
 // ========== ROUTES DE BASE ==========
 app.get('/', (req, res) => {

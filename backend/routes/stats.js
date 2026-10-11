@@ -18,7 +18,9 @@ router.get('/summary', async (req, res) => {
       const [userCount, bookCount, loanCount] = await Promise.all([
         User.countDocuments(),
         Book.countDocuments(),
-        Loan.countDocuments({ status: 'approved' })
+        // FIX: approveLoan() sets status to 'active' (never 'approved'), so counting
+        // only 'approved' made the dashboard's "active loans" counter always 0.
+        Loan.countDocuments({ status: { $in: ['approved', 'active'] } })
       ]);
 
       return {

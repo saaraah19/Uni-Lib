@@ -1,0 +1,49 @@
+# Render Blueprint — UniLib
+# Deploy: Render dashboard → New + → Blueprint → select this repository → Apply.
+# Secrets marked `sync: false` must be filled in the dashboard after the first apply.
+#
+# ORDER OF OPERATIONS (the two services need each other's URL):
+#   1. Apply the blueprint (both services are created; the first build of the
+#      frontend will use a placeholder API URL — that's fine).
+#   2. Copy the API URL  (https://unilib-api.onrender.com)  → set it as
+#      REACT_APP_API_URL on the *web* service as  https://unilib-api.onrender.com/api
+#   3. Copy the site URL (https://unilib-web.onrender.com)  → set it as
+#      CLIENT_URL on the *api* service (no trailing slash).
+#   4. Trigger a manual deploy of the frontend (REACT_APP_* values are baked in at build time).
+
+services:
+  # ───────────── Backend: Express + MongoDB Atlas ─────────────
+  - type: web
+    name: unilib-api
+    runtime: node
+    plan: free
+    region: frankfurt            # closest Render region to Algeria; pick the same region for your Atlas cluster
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health # lightweight endpoint added for cold-start handling
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI         # Atlas connection string
+        sync: false
+      - key: SECRET_KEY          # JWT signing key — generated for you
+        generateValue: true
+      - key: CLIENT_URL          # exact frontend origin, NO trailing slash
+        sync: false
+
+  # ───────────── Frontend: React (CRA) static site ─────────────
+  - type: web
+    name: unilib-web
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL   # e.g. https://unilib-api.onrender.com/api
+        sync: false
+      - key: CI                  # don't fail the build on lint warnings
+        value: "false"
+    routes:
+      # Single-page-app fallback: let React Router handle /login, /books, ...
+      - type: rewrite
+        source: /*
+        destination: /index.html
