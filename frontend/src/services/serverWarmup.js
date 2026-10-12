@@ -23,8 +23,12 @@ import axios from 'axios';
 import { logger } from '../utils/logger';
 
 // Single source of truth for the API base URL (api.js imports it from here).
+// Dev: the API runs separately on :5000. Production build: the API is on the SAME origin
+// (single-service hosting, Express serves the React build) so a relative "/api" works with
+// no configuration. Set REACT_APP_API_URL only if the API lives on a different host.
 export const API_BASE_URL =
-  process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+  process.env.REACT_APP_API_URL ||
+  (process.env.NODE_ENV === 'production' ? '/api' : 'http://localhost:5000/api');
 
 const HEALTH_URL = `${API_BASE_URL}/health`;
 const ATTEMPT_TIMEOUT_MS = 8000; // one ping may hang while the box boots

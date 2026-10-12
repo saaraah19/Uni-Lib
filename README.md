@@ -172,7 +172,7 @@ A catalog is easy to build and hard to get *right* once several people use it at
 | **Frontend** | React 19 (Create React App), React Router 7, Tailwind CSS 3, Axios, React-Toastify, React Icons, react-error-boundary |
 | **Backend** | Node.js, Express 5, Mongoose 9, JSON Web Tokens, bcryptjs, express-validator, express-rate-limit, Helmet, node-cron |
 | **Database** | MongoDB Atlas |
-| **Hosting** | Render (static site + web service) |
+| **Hosting** | Render (single web service: Express serves the API and the React build) |
 
 ---
 
@@ -183,15 +183,13 @@ flowchart LR
     subgraph Browser
         UI["React SPA<br/>(student + staff views)"]
     end
-    subgraph Render
-        STATIC["Static site<br/>(CDN)"]
-        API["Express 5 API<br/>auth · validation · rate limit"]
+    subgraph Render["Render — one web service"]
+        API["Express 5<br/>serves the React build + REST API<br/>auth · validation · rate limit"]
         CRON["node-cron<br/>daily due-date reminders"]
     end
     DB[("MongoDB Atlas<br/>books · users · loans<br/>favorites · notifications")]
 
-    UI -- "loads bundle" --> STATIC
-    UI -- "REST + JWT" --> API
+    UI -- "page + bundle, then REST (same origin)" --> API
     API --> DB
     CRON --> DB
 ```
@@ -352,6 +350,10 @@ Free Render web services **sleep after ~15 minutes without traffic**; the first 
 | **Honest feedback** | After 1.2 s of waiting, a banner explains that the server is waking up (with a live counter), confirms when it's ready, and offers **Réessayer** if it never answers within 2 minutes. |
 | **Mid-session sleep** | If the server falls asleep while the tab is open, failed `GET`s are re-woken and **replayed once**; `POST/PUT/DELETE` are **never replayed automatically** (a timed-out write may have succeeded) — the server is simply woken for the user's manual retry. Returning to a long-idle tab triggers a background check. |
 
+> **Single service = one extra thing to know.** Because the same service serves the page *and* the API, the very first request after a sleep is held by Render's own loading page until the server is up. The splash screen and the "server is waking up" banner take over from there, and they also cover the case where the server falls asleep while a tab stays open. If you want the first page to appear instantly, split the site into a static site + an API ([`docs/render.two-services.yaml`](docs/render.two-services.yaml)).
+>
+> **Daily reminders.** The due-date reminder job runs inside the server process (node-cron, 08:00), so on the free plan it only fires if the service happens to be awake at that time.
+
 > **Keeping the service awake (optional).** An external uptime monitor (e.g. UptimeRobot or cron-job.org) pinging `/api/health` every ~14 minutes prevents the idle spin-down. It's not an officially supported Render feature, and a paid instance type removes the behaviour entirely.
 
 ---
@@ -403,21 +405,52 @@ mongorestore --uri "<your MONGODB_URI>" --nsInclude "librairie_universitaire.boo
 
 ## Deploying to Render
 
-The repository contains a [`render.yaml`](render.yaml) blueprint describing both services.
+UniLib deploys as **one Render web service**: Express serves the REST API under `/api` and the built React app for every other URL, so there is nothing to configure between a frontend and a backend (same origin, no CORS).
 
-1. **MongoDB Atlas** — create a cluster and a database user. Under *Network Access*, allow `0.0.0.0/0` (Render's free tier has no fixed outbound IP).
-2. **Render** → *New + → Blueprint* → select this repository → *Apply*.
-3. Set the secrets in the dashboard:
+### 1. Prepare MongoDB Atlas
 
-   | Service | Variable | Value |
-   |---|---|---|
-   | `unilib-api` | `MONGODB_URI` | your Atlas connection string |
-   | `unilib-api` | `CLIENT_URL` | the frontend URL, **no trailing slash** |
-   | `unilib-api` | `SECRET_KEY` | generated automatically |
-   | `unilib-web` | `REACT_APP_API_URL` | `https://<api-service>.onrender.com/api` |
+- Create (or reuse) a cluster and a database user.
+- *Network Access* → allow `0.0.0.0/0` (Render's free tier has no fixed outbound IP).
+- Copy the connection string (*Connect → Drivers*), with your database name in the path:
+  `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/librairie_universitaire?retryWrites=true&w=majority`
 
-4. The two services need each other's URL, so after the first deploy: fill in the values above, then **manually redeploy the frontend** (`REACT_APP_*` values are baked in at build time).
-5. The blueprint already declares the single-page-app rewrite (`/* → /index.html`), so deep links such as `/login` work on refresh.
+### 2. Create the service
+
+**Option A — Blueprint (recommended).** Push the repository to GitHub, then Render → *New + → Blueprint* → pick the repo → *Apply*. [`render.yaml`](render.yaml) provides every setting below.
+
+**Option B — manually.** Render → *New + → Web Service* → pick the repo, then:
+
+| Setting | Value |
+|---|---|
+| Runtime | Node |
+| Region | Frankfurt (match your Atlas region) |
+| Instance type | Free |
+| Build command | `npm install --include=dev --prefix frontend && INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build --prefix frontend && npm install --prefix backend` |
+| Start command | `npm start --prefix backend` |
+| Health check path | `/api/health` |
+
+### 3. Environment variables
+
+| Variable | Value |
+|---|---|
+| `MONGODB_URI` | your Atlas connection string |
+| `SECRET_KEY` | a long random string (auto-generated by the blueprint) |
+| `NODE_ENV` | `production` |
+
+No `CLIENT_URL` or `REACT_APP_API_URL` is needed: the production build calls the API on its own origin (`/api`).
+
+### 4. Check it
+
+Once the deploy is live, open `https://<your-service>.onrender.com/api/health` — you should see `{"status":"ok","db":"up",…}` — then the site root. Create your first staff account as described in [Create the first staff account](#create-the-first-staff-account).
+
+> **Why `INLINE_RUNTIME_CHUNK=false`?** The server sends a strict Content-Security-Policy (scripts from the same origin only). Create React App normally inlines a small runtime script into `index.html`; this flag keeps it as a regular file so the policy doesn't block it. If you ever see a blank page in production, check the browser console for a CSP error first.
+
+### Run the production build locally (optional)
+
+```bash
+npm install --prefix frontend && npm run build --prefix frontend
+npm install --prefix backend  && npm start --prefix backend   # → http://localhost:5000 serves the app and the API
+```
 
 ---
 
