@@ -17,7 +17,9 @@ services:
     # 1) install + build the React app   2) install the API
     #   INLINE_RUNTIME_CHUNK=false  → required: the server's Content-Security-Policy forbids inline scripts
     #   GENERATE_SOURCEMAP=false    → faster build, lower memory on the free plan
-    buildCommand: npm install --include=dev --prefix frontend && INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build --prefix frontend && npm install --prefix backend
+    #   NODE_OPTIONS=…=350          → caps Node's heap: the build peaks ~640 MB uncapped (more than the
+    #                                 free plan's 512 MB) and ~450 MB with this cap (measured locally)
+    buildCommand: npm install --include=dev --prefix frontend && NODE_OPTIONS=--max-old-space-size=350 INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build --prefix frontend && npm install --prefix backend
     startCommand: npm start --prefix backend
     healthCheckPath: /api/health # lightweight endpoint added for cold-start handling
     envVars:

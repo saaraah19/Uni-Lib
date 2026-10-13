@@ -425,7 +425,7 @@ UniLib deploys as **one Render web service**: Express serves the REST API under 
 | Runtime | Node |
 | Region | Frankfurt (match your Atlas region) |
 | Instance type | Free |
-| Build command | `npm install --include=dev --prefix frontend && INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build --prefix frontend && npm install --prefix backend` |
+| Build command | `npm install --include=dev --prefix frontend && NODE_OPTIONS=--max-old-space-size=350 INLINE_RUNTIME_CHUNK=false GENERATE_SOURCEMAP=false npm run build --prefix frontend && npm install --prefix backend` |
 | Start command | `npm start --prefix backend` |
 | Health check path | `/api/health` |
 
@@ -443,6 +443,8 @@ No `CLIENT_URL` or `REACT_APP_API_URL` is needed: the production build calls the
 
 Once the deploy is live, open `https://<your-service>.onrender.com/api/health` — you should see `{"status":"ok","db":"up",…}` — then the site root. Create your first staff account as described in [Create the first staff account](#create-the-first-staff-account).
 
+> **Why `NODE_OPTIONS=--max-old-space-size=350`?** The free instance has 512 MB of RAM. Measured locally, the React build peaks at about 640 MB uncapped but only about 450 MB with this heap cap (and still finishes in ~25 s). If a build ever fails with an out-of-memory message, this is the first thing to look at.
+>
 > **Why `INLINE_RUNTIME_CHUNK=false`?** The server sends a strict Content-Security-Policy (scripts from the same origin only). Create React App normally inlines a small runtime script into `index.html`; this flag keeps it as a regular file so the policy doesn't block it. If you ever see a blank page in production, check the browser console for a CSP error first.
 
 ### Run the production build locally (optional)
